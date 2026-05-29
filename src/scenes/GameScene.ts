@@ -8,9 +8,23 @@ export class GameScene extends Phaser.Scene {
   private player?: Player;
   private controls?: TouchControls;
   private inventory?: InventoryMenu;
+  private heroHearts: Phaser.GameObjects.Image[] = [];
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd?: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
+  private bKey?: Phaser.Input.Keyboard.Key;
   private menuKey?: Phaser.Input.Keyboard.Key;
+  private dragon?: Phaser.GameObjects.Sprite;
+  private dragonSpeech?: Phaser.GameObjects.Text;
+  private dragonHealthBar?: Phaser.GameObjects.Graphics;
+  private dragonHitbox?: Phaser.Geom.Rectangle;
+  private dragonHp = 6;
+  private readonly dragonMaxHp = 6;
+  private heroHp = 3;
+  private readonly heroMaxHp = 3;
+  private heroInvulnerableMs = 0;
+  private fireballs: Array<{ body: Phaser.GameObjects.Arc; velocity: Phaser.Math.Vector2 }> = [];
+  private fireTimerMs = 900;
+  private lastTouchB = false;
   private roomBounds = new Phaser.Geom.Rectangle(38, 116, 284, 284);
 
   constructor() {
@@ -19,7 +33,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.createRoom();
-    this.player = new Player(this, 180, 260);
+    this.player = new Player(this, 180, 360);
 
     const uiRoot = document.querySelector<HTMLElement>('#ui-root');
     if (!uiRoot) {
@@ -37,6 +51,7 @@ export class GameScene extends Phaser.Scene {
       left: Phaser.Input.Keyboard.KeyCodes.A,
       right: Phaser.Input.Keyboard.KeyCodes.D,
     }) as Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
+    this.bKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.B);
     this.menuKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.M);
   }
 
@@ -53,8 +68,15 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.didPressLegendarySword()) {
+      this.useLegendarySword();
+    }
+
     const direction = this.getMoveDirection();
     this.player.update(delta, direction, this.roomBounds);
+    this.heroInvulnerableMs = Math.max(0, this.heroInvulnerableMs - delta);
+    this.updateDragon(delta);
+    this.updateFireballs(delta);
   }
 
   private getMoveDirection(): { x: number; y: number } {
@@ -94,9 +116,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.add
-      .text(180, 154, 'Bienvenido', {
+      .text(180, 136, 'Bienvenido', {
         fontFamily: 'monospace',
-        fontSize: '24px',
+        fontSize: '20px',
         color: '#f8e8a8',
         stroke: '#162020',
         strokeThickness: 4,
@@ -119,5 +141,250 @@ export class GameScene extends Phaser.Scene {
         color: '#fff2bd',
       })
       .setOrigin(0.5);
+
+    this.dragon = this.add.sprite(180, 212, 'legendary-dragon').setScale(1.65).setDepth(3);
+    this.dragonHitbox = new Phaser.Geom.Rectangle(this.dragon.x - 34, this.dragon.y - 26, 68, 54);
+    this.dragonSpeech = this.add
+      .text(180, 162, 'SIUUUU', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffdf6e',
+        stroke: '#3b0d18',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(4);
+
+    this.add
+      .text(180, 502, 'Espada legendaria Nv.9999: B', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#f4d06f',
+      })
+      .setOrigin(0.5);
+
+    this.createHeroHearts();
+    this.drawDragonHealthBar();
+  }
+
+  private didPressLegendarySword(): boolean {
+    const touchB = Boolean(this.controls?.state.actionB);
+    const pressed = (touchB && !this.lastTouchB) || Boolean(this.bKey && Phaser.Input.Keyboard.JustDown(this.bKey));
+    this.lastTouchB = touchB;
+    return pressed;
+  }
+
+  private useLegendarySword(): void {
+    if (!this.player) {
+      return;
+    }
+
+    const position = this.player.getPosition();
+    const facingX = this.player.getFacingX();
+    const swordX = position.x + facingX * 28;
+    const swordY = position.y - 16;
+    const swordHitbox = new Phaser.Geom.Rectangle(swordX - 14, swordY - 26, 28, 52);
+    const sword = this.add.image(swordX, swordY, 'legendary-sword').setDepth(6);
+    sword.setAngle(facingX > 0 ? 68 : -68);
+    sword.setFlipX(facingX < 0);
+
+    const slash = this.add.graphics().setDepth(6);
+    slash.lineStyle(6, 0xfff2a8, 1);
+    slash.beginPath();
+    slash.arc(position.x + facingX * 34, position.y - 4, 24, -0.9, 0.9, false);
+    slash.strokePath();
+    slash.lineStyle(2, 0xffffff, 1);
+    slash.beginPath();
+    slash.arc(position.x + facingX * 34, position.y - 4, 17, -0.8, 0.8, false);
+    slash.strokePath();
+
+    const damageText = this.add
+      .text(position.x, position.y - 44, '9999', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#fff2bd',
+        stroke: '#6d1f2b',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(7);
+
+    this.tweens.add({
+      targets: [slash, sword],
+      alpha: 0,
+      duration: 220,
+      onComplete: () => {
+        slash.destroy();
+        sword.destroy();
+      },
+    });
+    this.tweens.add({
+      targets: damageText,
+      y: damageText.y - 20,
+      alpha: 0,
+      duration: 420,
+      onComplete: () => damageText.destroy(),
+    });
+
+    this.fireballs = this.fireballs.filter((fireball) => {
+      const distance = Phaser.Math.Distance.Between(position.x, position.y, fireball.body.x, fireball.body.y);
+      if (distance < 68) {
+        fireball.body.destroy();
+        return false;
+      }
+      return true;
+    });
+
+    if (this.dragonHitbox && Phaser.Geom.Intersects.RectangleToRectangle(swordHitbox, this.dragonHitbox)) {
+      this.damageDragon();
+    }
+  }
+
+  private updateDragon(deltaMs: number): void {
+    if (!this.dragon || !this.player) {
+      return;
+    }
+    if (this.dragonHp <= 0) {
+      return;
+    }
+
+    this.fireTimerMs -= deltaMs;
+    if (this.fireTimerMs > 0) {
+      return;
+    }
+
+    this.fireTimerMs = 1650;
+    const origin = new Phaser.Math.Vector2(this.dragon.x, this.dragon.y + 34);
+    const velocity = new Phaser.Math.Vector2(0, 112);
+    const body = this.add.circle(origin.x, origin.y, 7, 0xff6b1a).setDepth(5);
+    body.setStrokeStyle(2, 0xffd166);
+    this.fireballs.push({ body, velocity });
+
+    this.dragonSpeech?.setVisible(true);
+    this.tweens.add({
+      targets: this.dragonSpeech,
+      y: 154,
+      alpha: 0.35,
+      duration: 220,
+      yoyo: true,
+      onComplete: () => {
+        this.dragonSpeech?.setAlpha(1);
+        this.dragonSpeech?.setY(162);
+      },
+    });
+  }
+
+  private updateFireballs(deltaMs: number): void {
+    const deltaSeconds = deltaMs / 1000;
+    this.fireballs = this.fireballs.filter((fireball) => {
+      fireball.body.x += fireball.velocity.x * deltaSeconds;
+      fireball.body.y += fireball.velocity.y * deltaSeconds;
+
+      if (this.player && this.heroInvulnerableMs <= 0) {
+        const fireHitbox = new Phaser.Geom.Rectangle(fireball.body.x - 7, fireball.body.y - 7, 14, 14);
+        if (Phaser.Geom.Intersects.RectangleToRectangle(fireHitbox, this.player.getHitbox())) {
+          fireball.body.destroy();
+          this.damageHero();
+          return false;
+        }
+      }
+
+      const insideRoom = this.roomBounds.contains(fireball.body.x, fireball.body.y);
+      if (!insideRoom) {
+        fireball.body.destroy();
+      }
+      return insideRoom;
+    });
+  }
+
+  private createHeroHearts(): void {
+    this.heroHearts = [];
+    for (let index = 0; index < this.heroMaxHp; index += 1) {
+      const heart = this.add.image(58 + index * 24, 92, 'heart-full').setScale(1.3).setDepth(8);
+      this.heroHearts.push(heart);
+    }
+  }
+
+  private updateHeroHearts(): void {
+    this.heroHearts.forEach((heart, index) => {
+      heart.setTexture(index < this.heroHp ? 'heart-full' : 'heart-empty');
+    });
+  }
+
+  private damageHero(): void {
+    this.heroHp = Math.max(0, this.heroHp - 1);
+    this.heroInvulnerableMs = 900;
+    this.updateHeroHearts();
+    this.cameras.main.shake(120, 0.006);
+
+    const position = this.player?.getPosition();
+    if (position) {
+      const ouch = this.add
+        .text(position.x, position.y - 44, '-1 corazon', {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#ff9aa8',
+          stroke: '#3b0d18',
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5)
+        .setDepth(8);
+      this.tweens.add({
+        targets: ouch,
+        y: ouch.y - 18,
+        alpha: 0,
+        duration: 600,
+        onComplete: () => ouch.destroy(),
+      });
+    }
+  }
+
+  private damageDragon(): void {
+    if (this.dragonHp <= 0) {
+      return;
+    }
+
+    this.dragonHp = Math.max(0, this.dragonHp - 1);
+    this.drawDragonHealthBar();
+    this.tweens.add({
+      targets: this.dragon,
+      tint: 0xffffff,
+      duration: 80,
+      yoyo: true,
+      onComplete: () => this.dragon?.clearTint(),
+    });
+
+    if (this.dragonHp === 0) {
+      this.dragonSpeech?.setText('NOOOO');
+      this.fireballs.forEach((fireball) => fireball.body.destroy());
+      this.fireballs = [];
+      this.tweens.add({
+        targets: this.dragon,
+        alpha: 0.25,
+        angle: 8,
+        duration: 500,
+      });
+    }
+  }
+
+  private drawDragonHealthBar(): void {
+    if (!this.dragonHealthBar) {
+      this.dragonHealthBar = this.add.graphics().setDepth(8);
+    }
+
+    const x = 112;
+    const y = 96;
+    const width = 136;
+    const fillWidth = Math.round((this.dragonHp / this.dragonMaxHp) * width);
+
+    this.dragonHealthBar.clear();
+    this.dragonHealthBar.fillStyle(0x160d12, 1);
+    this.dragonHealthBar.fillRect(x - 3, y - 3, width + 6, 14);
+    this.dragonHealthBar.fillStyle(0x6d1f2b, 1);
+    this.dragonHealthBar.fillRect(x, y, width, 8);
+    this.dragonHealthBar.fillStyle(0xff4f6d, 1);
+    this.dragonHealthBar.fillRect(x, y, fillWidth, 8);
+    this.dragonHealthBar.lineStyle(2, 0xf4d06f, 1);
+    this.dragonHealthBar.strokeRect(x - 3, y - 3, width + 6, 14);
   }
 }
