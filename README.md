@@ -50,3 +50,9 @@ La demo incluira una sala inicial cuadrada con texto "Bienvenido", un personaje 
 - `B` queda reservado para accion.
 - Menu solo visual por ahora, sin items ni guardado.
 - Prioridad absoluta: navegador movil vertical.
+
+## Guardado Local De Progreso
+- El progreso se guarda por dispositivo y navegador usando `localStorage`.
+- La primera pantalla pide el nombre del heroe.
+- Si el dispositivo ya tiene nombre guardado, el juego salta directamente al nivel 1.
+- La version inicial guarda `heroName` y `currentLevel`.
