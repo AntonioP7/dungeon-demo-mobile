@@ -9,11 +9,13 @@ export class Player {
   private readonly sprite: Phaser.GameObjects.Sprite;
   private readonly speed = 130;
   private facingX = 1;
+  private isAttacking = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.sprite = scene.add.sprite(x, y, 'hero-idle');
-    this.sprite.setScale(2);
+    this.sprite.setScale(0.62);
     this.sprite.setDepth(3);
+    this.sprite.play('hero-idle');
   }
 
   update(deltaMs: number, direction: MoveDirection, bounds: Phaser.Geom.Rectangle): void {
@@ -36,6 +38,10 @@ export class Player {
       this.facingX = normalized.x < 0 ? -1 : 1;
       this.sprite.setFlipX(this.facingX < 0);
     }
+
+    if (!this.isAttacking) {
+      this.sprite.play(normalized.lengthSq() > 0 ? 'hero-move' : 'hero-idle', true);
+    }
   }
 
   getPosition(): Phaser.Math.Vector2 {
@@ -47,6 +53,15 @@ export class Player {
   }
 
   getHitbox(): Phaser.Geom.Rectangle {
-    return new Phaser.Geom.Rectangle(this.sprite.x - 14, this.sprite.y - 18, 28, 36);
+    return new Phaser.Geom.Rectangle(this.sprite.x - 15, this.sprite.y - 20, 30, 40);
+  }
+
+  playSwordAttack(): void {
+    this.isAttacking = true;
+    this.sprite.play('hero-sword-attack', true);
+    this.sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      this.isAttacking = false;
+      this.sprite.play('hero-idle', true);
+    });
   }
 }

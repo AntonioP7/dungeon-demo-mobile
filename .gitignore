@@ -3,3 +3,4 @@ dist/
 .npm-cache/
 *.zip
 *.log
+verification-screenshot.png

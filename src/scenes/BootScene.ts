@@ -6,63 +6,39 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.createPlayerTexture();
-    this.createDragonTexture();
+    this.load.spritesheet('hero-idle', '/dungeon-demo-mobile/assets/sprites/hero-epic-idle.png', {
+      frameWidth: 96,
+      frameHeight: 96,
+    });
+    this.load.spritesheet('hero-move', '/dungeon-demo-mobile/assets/sprites/hero-epic-move.png', {
+      frameWidth: 96,
+      frameHeight: 96,
+    });
+    this.load.spritesheet('hero-sword-attack', '/dungeon-demo-mobile/assets/sprites/hero-epic-sword-attack.png', {
+      frameWidth: 96,
+      frameHeight: 96,
+    });
+    this.load.spritesheet('dragon-idle', '/dungeon-demo-mobile/assets/sprites/dragon-boss-pixelart-idle.png', {
+      frameWidth: 128,
+      frameHeight: 128,
+    });
+    this.load.spritesheet('dragon-attack', '/dungeon-demo-mobile/assets/sprites/dragon-boss-pixelart-attack.png', {
+      frameWidth: 128,
+      frameHeight: 128,
+    });
+    this.load.spritesheet('fireball-projectile', '/dungeon-demo-mobile/assets/sprites/fireball-projectile.png', {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
     this.createSwordTexture();
     this.createHeartTexture();
   }
 
   create(): void {
+    this.createHeroAnimations();
+    this.createDragonAnimations();
+    this.createFireballAnimations();
     this.scene.start('GameScene');
-  }
-
-  private createPlayerTexture(): void {
-    const graphics = this.make.graphics({ x: 0, y: 0 }, false);
-
-    graphics.fillStyle(0x5c3a21);
-    graphics.fillRect(5, 1, 10, 5);
-    graphics.fillStyle(0xf0b47a);
-    graphics.fillRect(4, 5, 12, 8);
-    graphics.fillStyle(0x263f73);
-    graphics.fillRect(5, 13, 10, 11);
-    graphics.fillStyle(0x172744);
-    graphics.fillRect(5, 24, 4, 5);
-    graphics.fillRect(11, 24, 4, 5);
-    graphics.fillStyle(0x1a1a1a);
-    graphics.fillRect(7, 8, 2, 2);
-    graphics.fillRect(12, 8, 2, 2);
-    graphics.fillStyle(0xf0b47a);
-    graphics.fillRect(2, 14, 3, 8);
-    graphics.fillRect(15, 14, 3, 8);
-    graphics.generateTexture('hero-idle', 20, 30);
-    graphics.destroy();
-  }
-
-  private createDragonTexture(): void {
-    const graphics = this.make.graphics({ x: 0, y: 0 }, false);
-
-    graphics.fillStyle(0x6d1f2b);
-    graphics.fillRect(10, 12, 28, 22);
-    graphics.fillStyle(0x9f2f3f);
-    graphics.fillRect(16, 6, 20, 12);
-    graphics.fillRect(4, 16, 10, 10);
-    graphics.fillRect(34, 16, 10, 10);
-    graphics.fillStyle(0xf4d06f);
-    graphics.fillRect(18, 3, 4, 5);
-    graphics.fillRect(30, 3, 4, 5);
-    graphics.fillStyle(0xffe39a);
-    graphics.fillRect(21, 11, 3, 3);
-    graphics.fillRect(30, 11, 3, 3);
-    graphics.fillStyle(0x1a1a1a);
-    graphics.fillRect(22, 12, 1, 1);
-    graphics.fillRect(31, 12, 1, 1);
-    graphics.fillStyle(0xff7a1a);
-    graphics.fillRect(25, 18, 7, 4);
-    graphics.fillStyle(0xf4d06f);
-    graphics.fillTriangle(10, 34, 16, 46, 22, 34);
-    graphics.fillTriangle(26, 34, 32, 46, 38, 34);
-    graphics.generateTexture('legendary-dragon', 48, 48);
-    graphics.destroy();
   }
 
   private createSwordTexture(): void {
@@ -100,5 +76,53 @@ export class BootScene extends Phaser.Scene {
     graphics.strokeTriangle(4, 13, 14, 13, 9, 18);
     graphics.generateTexture('heart-empty', 18, 20);
     graphics.destroy();
+  }
+
+  private createDragonAnimations(): void {
+    this.anims.create({
+      key: 'dragon-idle',
+      frames: this.anims.generateFrameNumbers('dragon-idle', { start: 0, end: 7 }),
+      frameRate: 5,
+      repeat: -1,
+    });
+
+    this.anims.create({
+      key: 'dragon-attack',
+      frames: this.anims.generateFrameNumbers('dragon-attack', { start: 0, end: 9 }),
+      frameRate: 8,
+      repeat: 0,
+    });
+  }
+
+  private createHeroAnimations(): void {
+    this.anims.create({
+      key: 'hero-idle',
+      frames: this.anims.generateFrameNumbers('hero-idle', { start: 0, end: 7 }),
+      frameRate: 4,
+      repeat: -1,
+    });
+
+    this.anims.create({
+      key: 'hero-move',
+      frames: this.anims.generateFrameNumbers('hero-move', { start: 0, end: 7 }),
+      frameRate: 7,
+      repeat: -1,
+    });
+
+    this.anims.create({
+      key: 'hero-sword-attack',
+      frames: this.anims.generateFrameNumbers('hero-sword-attack', { start: 0, end: 7 }),
+      frameRate: 12,
+      repeat: 0,
+    });
+  }
+
+  private createFireballAnimations(): void {
+    this.anims.create({
+      key: 'fireball-projectile',
+      frames: this.anims.generateFrameNumbers('fireball-projectile', { start: 0, end: 7 }),
+      frameRate: 8,
+      repeat: -1,
+    });
   }
 }

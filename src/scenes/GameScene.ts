@@ -22,7 +22,7 @@ export class GameScene extends Phaser.Scene {
   private heroHp = 3;
   private readonly heroMaxHp = 3;
   private heroInvulnerableMs = 0;
-  private fireballs: Array<{ body: Phaser.GameObjects.Arc; velocity: Phaser.Math.Vector2 }> = [];
+  private fireballs: Array<{ body: Phaser.GameObjects.Sprite; velocity: Phaser.Math.Vector2 }> = [];
   private fireTimerMs = 900;
   private lastTouchB = false;
   private roomBounds = new Phaser.Geom.Rectangle(38, 116, 284, 284);
@@ -142,8 +142,9 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.dragon = this.add.sprite(180, 212, 'legendary-dragon').setScale(1.65).setDepth(3);
-    this.dragonHitbox = new Phaser.Geom.Rectangle(this.dragon.x - 34, this.dragon.y - 26, 68, 54);
+    this.dragon = this.add.sprite(180, 214, 'dragon-idle').setScale(0.72).setDepth(3);
+    this.dragon.play('dragon-idle');
+    this.dragonHitbox = new Phaser.Geom.Rectangle(this.dragon.x - 34, this.dragon.y - 28, 68, 60);
     this.dragonSpeech = this.add
       .text(180, 162, 'SIUUUU', {
         fontFamily: 'monospace',
@@ -184,19 +185,7 @@ export class GameScene extends Phaser.Scene {
     const swordX = position.x + facingX * 28;
     const swordY = position.y - 16;
     const swordHitbox = new Phaser.Geom.Rectangle(swordX - 14, swordY - 26, 28, 52);
-    const sword = this.add.image(swordX, swordY, 'legendary-sword').setDepth(6);
-    sword.setAngle(facingX > 0 ? 68 : -68);
-    sword.setFlipX(facingX < 0);
-
-    const slash = this.add.graphics().setDepth(6);
-    slash.lineStyle(6, 0xfff2a8, 1);
-    slash.beginPath();
-    slash.arc(position.x + facingX * 34, position.y - 4, 24, -0.9, 0.9, false);
-    slash.strokePath();
-    slash.lineStyle(2, 0xffffff, 1);
-    slash.beginPath();
-    slash.arc(position.x + facingX * 34, position.y - 4, 17, -0.8, 0.8, false);
-    slash.strokePath();
+    this.player.playSwordAttack();
 
     const damageText = this.add
       .text(position.x, position.y - 44, '9999', {
@@ -209,15 +198,6 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(7);
 
-    this.tweens.add({
-      targets: [slash, sword],
-      alpha: 0,
-      duration: 220,
-      onComplete: () => {
-        slash.destroy();
-        sword.destroy();
-      },
-    });
     this.tweens.add({
       targets: damageText,
       y: damageText.y - 20,
@@ -253,17 +233,24 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.fireTimerMs = 1650;
-    const origin = new Phaser.Math.Vector2(this.dragon.x, this.dragon.y + 34);
+    this.fireTimerMs = 950;
+    const origin = new Phaser.Math.Vector2(this.dragon.x, this.dragon.y + 46);
     const velocity = new Phaser.Math.Vector2(0, 112);
-    const body = this.add.circle(origin.x, origin.y, 7, 0xff6b1a).setDepth(5);
-    body.setStrokeStyle(2, 0xffd166);
+    const body = this.add.sprite(origin.x, origin.y, 'fireball-projectile').setScale(0.32).setDepth(5);
+    body.play('fireball-projectile');
     this.fireballs.push({ body, velocity });
+
+    this.dragon.play('dragon-attack', true);
+    this.dragon.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      if (this.dragonHp > 0) {
+        this.dragon?.play('dragon-idle', true);
+      }
+    });
 
     this.dragonSpeech?.setVisible(true);
     this.tweens.add({
       targets: this.dragonSpeech,
-      y: 154,
+        y: 154,
       alpha: 0.35,
       duration: 220,
       yoyo: true,
