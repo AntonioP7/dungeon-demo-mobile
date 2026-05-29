@@ -17,14 +17,20 @@ export class GameScene extends Phaser.Scene {
   private dragonSpeech?: Phaser.GameObjects.Text;
   private dragonHealthBar?: Phaser.GameObjects.Graphics;
   private dragonHitbox?: Phaser.Geom.Rectangle;
-  private dragonHp = 6;
-  private readonly dragonMaxHp = 6;
+  private dragonHp = 12;
+  private readonly dragonMaxHp = 12;
   private heroHp = 3;
   private readonly heroMaxHp = 3;
   private heroInvulnerableMs = 0;
   private fireballs: Array<{ body: Phaser.GameObjects.Sprite; velocity: Phaser.Math.Vector2 }> = [];
   private fireTimerMs = 900;
   private lastTouchB = false;
+  private lastTouchA = false;
+  private combatPhase: 'action' | 'turn' | 'defeated' = 'action';
+  private turnInputLocked = false;
+  private heroIsDefending = false;
+  private turnOverlay?: Phaser.GameObjects.Container;
+  private turnStatusText?: Phaser.GameObjects.Text;
   private roomBounds = new Phaser.Geom.Rectangle(34, 128, 292, 332);
 
   constructor() {
@@ -68,7 +74,12 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.didPressLegendarySword()) {
+    if (this.combatPhase === 'turn') {
+      this.updateTurnCombat();
+      return;
+    }
+
+    if (this.didPressB()) {
       this.useLegendarySword();
     }
 
@@ -124,8 +135,8 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.dragon = this.add.sprite(180, 218, 'dragon-idle').setScale(0.72).setDepth(3);
-    this.dragon.play('dragon-idle');
+    this.dragon = this.add.sprite(180, 218, 'mage-idle').setScale(0.72).setDepth(3);
+    this.dragon.play('mage-idle');
     this.dragonHitbox = new Phaser.Geom.Rectangle(this.dragon.x - 34, this.dragon.y - 28, 68, 60);
     this.dragonSpeech = this.add
       .text(180, 162, 'SIUUUU', {
@@ -150,10 +161,17 @@ export class GameScene extends Phaser.Scene {
     this.drawDragonHealthBar();
   }
 
-  private didPressLegendarySword(): boolean {
+  private didPressB(): boolean {
     const touchB = Boolean(this.controls?.state.actionB);
     const pressed = (touchB && !this.lastTouchB) || Boolean(this.bKey && Phaser.Input.Keyboard.JustDown(this.bKey));
     this.lastTouchB = touchB;
+    return pressed;
+  }
+
+  private didPressA(): boolean {
+    const touchA = Boolean(this.controls?.state.actionA);
+    const pressed = touchA && !this.lastTouchA;
+    this.lastTouchA = touchA;
     return pressed;
   }
 
@@ -217,15 +235,21 @@ export class GameScene extends Phaser.Scene {
 
     this.fireTimerMs = 950;
     const origin = new Phaser.Math.Vector2(this.dragon.x, this.dragon.y + 46);
-    const velocity = new Phaser.Math.Vector2(0, 112);
+    const target = this.player.getPosition();
+    const velocity = new Phaser.Math.Vector2(target.x - origin.x, target.y - origin.y);
+    if (velocity.lengthSq() === 0) {
+      velocity.set(0, 1);
+    }
+    velocity.normalize().scale(128);
     const body = this.add.sprite(origin.x, origin.y, 'fireball-projectile').setScale(0.32).setDepth(5);
+    body.setRotation(velocity.angle() + Math.PI / 2);
     body.play('fireball-projectile');
     this.fireballs.push({ body, velocity });
 
-    this.dragon.play('dragon-attack', true);
+    this.dragon.play('mage-attack', true);
     this.dragon.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       if (this.dragonHp > 0) {
-        this.dragon?.play('dragon-idle', true);
+        this.dragon?.play('mage-idle', true);
       }
     });
 
@@ -309,7 +333,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private damageDragon(): void {
-    if (this.dragonHp <= 0) {
+    if (this.dragonHp <= 0 || this.combatPhase === 'defeated') {
       return;
     }
 
@@ -323,23 +347,147 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => this.dragon?.clearTint(),
     });
 
-    if (this.dragonHp === 0) {
-      this.dragonSpeech?.setText('NOOOO');
-      this.fireballs.forEach((fireball) => fireball.body.destroy());
-      this.fireballs = [];
-      this.tweens.add({
-        targets: this.dragon,
-        alpha: 0.25,
-        angle: 8,
-        duration: 500,
-      });
+    if (this.dragonHp <= this.dragonMaxHp / 2 && this.combatPhase === 'action') {
+      this.startTurnCombat();
+      return;
     }
+
+    if (this.dragonHp === 0) {
+      this.defeatMage();
+    }
+  }
+
+  private startTurnCombat(): void {
+    this.combatPhase = 'turn';
+    this.turnInputLocked = false;
+    this.heroIsDefending = false;
+    this.fireballs.forEach((fireball) => fireball.body.destroy());
+    this.fireballs = [];
+    this.dragon?.setVisible(false);
+    this.dragonSpeech?.setText('FASE POR TURNOS');
+
+    const shade = this.add.rectangle(180, 320, 360, 640, 0x05080a, 0.62);
+    const mage = this.add.image(180, 210, 'mage-battle').setScale(0.68);
+    const panel = this.add.rectangle(180, 482, 304, 112, 0x172b32, 0.94).setStrokeStyle(3, 0xf4d06f);
+    const title = this.add
+      .text(180, 430, 'Combate por turnos', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#fff2bd',
+      })
+      .setOrigin(0.5);
+    const status = this.add
+      .text(180, 466, 'Tu turno', {
+        fontFamily: 'monospace',
+        fontSize: '15px',
+        color: '#b9d8c2',
+      })
+      .setOrigin(0.5);
+    const actions = this.add
+      .text(180, 514, 'B Atacar    A Defender', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#f4d06f',
+      })
+      .setOrigin(0.5);
+
+    this.turnStatusText = status;
+    this.turnOverlay = this.add.container(0, 0, [shade, mage, panel, title, status, actions]).setDepth(20);
+    this.cameras.main.flash(260, 95, 30, 110);
+    this.drawDragonHealthBar();
+  }
+
+  private updateTurnCombat(): void {
+    this.heroInvulnerableMs = 0;
+    if (this.turnInputLocked) {
+      return;
+    }
+
+    if (this.didPressB()) {
+      this.playHeroTurnAttack();
+      return;
+    }
+
+    if (this.didPressA()) {
+      this.heroIsDefending = true;
+      this.turnStatusText?.setText('Te defiendes');
+      this.scheduleMageTurn();
+    }
+  }
+
+  private playHeroTurnAttack(): void {
+    if (!this.player) {
+      return;
+    }
+
+    this.turnInputLocked = true;
+    this.player.playSwordAttack();
+    this.dragonHp = Math.max(0, this.dragonHp - 2);
+    this.drawDragonHealthBar();
+    this.turnStatusText?.setText('Golpe legendario: -2');
+    this.tweens.add({
+      targets: this.turnOverlay?.getAt(1),
+      x: 188,
+      duration: 70,
+      yoyo: true,
+      onComplete: () => {
+        if (this.dragonHp === 0) {
+          this.defeatMage();
+          return;
+        }
+        this.scheduleMageTurn();
+      },
+    });
+  }
+
+  private scheduleMageTurn(): void {
+    this.turnInputLocked = true;
+    this.time.delayedCall(620, () => this.playMageTurn());
+  }
+
+  private playMageTurn(): void {
+    if (this.combatPhase !== 'turn') {
+      return;
+    }
+
+    if (this.heroIsDefending) {
+      this.turnStatusText?.setText('Bloqueas el conjuro');
+      this.heroIsDefending = false;
+    } else {
+      this.turnStatusText?.setText('El mago contraataca');
+      this.damageHero();
+    }
+
+    this.time.delayedCall(760, () => {
+      if (this.combatPhase === 'turn') {
+        this.turnStatusText?.setText('Tu turno');
+        this.turnInputLocked = false;
+      }
+    });
+  }
+
+  private defeatMage(): void {
+    this.combatPhase = 'defeated';
+    this.dragonHp = 0;
+    this.drawDragonHealthBar();
+    this.dragonSpeech?.setText('NOOOO');
+    this.fireballs.forEach((fireball) => fireball.body.destroy());
+    this.fireballs = [];
+    this.turnStatusText?.setText('Mago derrotado');
+    this.tweens.add({
+      targets: this.turnOverlay ?? this.dragon,
+      alpha: 0.25,
+      angle: 3,
+      duration: 500,
+    });
   }
 
   private drawDragonHealthBar(): void {
     if (!this.dragonHealthBar) {
       this.dragonHealthBar = this.add.graphics().setDepth(8);
     }
+
+    this.dragonHealthBar.setDepth(this.combatPhase === 'turn' || this.combatPhase === 'defeated' ? 22 : 8);
 
     const x = 112;
     const y = 96;

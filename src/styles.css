@@ -1,4 +1,8 @@
 :root {
+  --controls-height: clamp(178px, 25vh, 204px);
+  --screen-width: min(100vw, calc(100vh * 0.5625));
+  --game-height: min(calc(100vh - var(--controls-height)), calc(var(--screen-width) * 1.7778));
+  --game-width: min(var(--screen-width), calc(var(--game-height) * 0.5625));
   color: #f7ebc0;
   background: #080d12;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
@@ -27,7 +31,9 @@ body,
 #app {
   position: relative;
   display: grid;
-  place-items: center;
+  grid-template-rows: var(--game-height) var(--controls-height);
+  justify-items: center;
+  align-content: center;
   background:
     linear-gradient(#0e1b21 1px, transparent 1px),
     linear-gradient(90deg, #0e1b21 1px, transparent 1px),
@@ -36,10 +42,15 @@ body,
 }
 
 #game {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  width: var(--game-width);
+  height: var(--game-height);
   display: grid;
   place-items: center;
+  align-self: end;
+  overflow: hidden;
+  background: #05080a;
+  box-shadow: 0 0 0 3px #203942;
 }
 
 canvas {
@@ -49,11 +60,7 @@ canvas {
 
 #ui-root {
   position: absolute;
-  width: min(100vw, 56.25vh);
-  height: min(100vh, 177.78vw);
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
   pointer-events: none;
 }
 
@@ -79,34 +86,45 @@ button.is-pressed {
 
 .touch-controls {
   position: absolute;
-  inset: 0;
+  left: 50%;
+  bottom: 0;
+  width: var(--game-width);
+  height: var(--controls-height);
+  transform: translateX(-50%);
+  border: 3px solid #203942;
+  border-top: 0;
+  background:
+    linear-gradient(#132730 1px, transparent 1px),
+    linear-gradient(90deg, #132730 1px, transparent 1px),
+    #0d171d;
+  background-size: 18px 18px;
   pointer-events: none;
 }
 
 .menu-button {
   position: absolute;
-  top: max(18px, env(safe-area-inset-top));
-  right: 18px;
+  top: 14px;
+  right: 14px;
   min-width: 76px;
-  height: 42px;
+  height: 38px;
   border-radius: 6px;
 }
 
 .dpad {
   position: absolute;
-  left: 18px;
-  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 14px;
+  bottom: max(10px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(3, 54px);
-  grid-template-rows: repeat(3, 54px);
+  grid-template-columns: repeat(3, 50px);
+  grid-template-rows: repeat(3, 50px);
   gap: 6px;
   pointer-events: none;
 }
 
 .dpad button,
 .action-button {
-  width: 54px;
-  height: 54px;
+  width: 50px;
+  height: 50px;
   border-radius: 6px;
   display: grid;
   place-items: center;
@@ -134,18 +152,18 @@ button.is-pressed {
 
 .action-buttons {
   position: absolute;
-  right: 22px;
-  bottom: max(44px, env(safe-area-inset-bottom));
+  right: 16px;
+  bottom: max(20px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(2, 62px);
-  gap: 14px;
+  grid-template-columns: repeat(2, 58px);
+  gap: 12px;
   align-items: end;
   pointer-events: none;
 }
 
 .action-button {
-  width: 62px;
-  height: 62px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   font-size: 22px;
 }

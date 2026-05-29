@@ -19,14 +19,11 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 96,
       frameHeight: 96,
     });
-    this.load.spritesheet('dragon-idle', '/dungeon-demo-mobile/assets/sprites/dragon-boss-pixelart-idle.png', {
+    this.load.spritesheet('mage-idle', '/dungeon-demo-mobile/assets/sprites/archimago_fragmento_oscuro_large_idle.png', {
       frameWidth: 128,
       frameHeight: 128,
     });
-    this.load.spritesheet('dragon-attack', '/dungeon-demo-mobile/assets/sprites/dragon-boss-pixelart-attack.png', {
-      frameWidth: 128,
-      frameHeight: 128,
-    });
+    this.load.image('mage-battle', '/dungeon-demo-mobile/assets/sprites/archimago_fragmento_oscuro_battle_320x320.png');
     this.load.spritesheet('fireball-projectile', '/dungeon-demo-mobile/assets/sprites/fireball-projectile.png', {
       frameWidth: 64,
       frameHeight: 64,
@@ -37,7 +34,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     this.createHeroAnimations();
-    this.createDragonAnimations();
+    this.createMageAnimations();
     this.createFireballAnimations();
     this.scene.start('GameScene');
   }
@@ -79,17 +76,17 @@ export class BootScene extends Phaser.Scene {
     graphics.destroy();
   }
 
-  private createDragonAnimations(): void {
+  private createMageAnimations(): void {
     this.anims.create({
-      key: 'dragon-idle',
-      frames: this.anims.generateFrameNumbers('dragon-idle', { start: 0, end: 7 }),
+      key: 'mage-idle',
+      frames: this.anims.generateFrameNumbers('mage-idle', { start: 0, end: 7 }),
       frameRate: 5,
       repeat: -1,
     });
 
     this.anims.create({
-      key: 'dragon-attack',
-      frames: this.anims.generateFrameNumbers('dragon-attack', { start: 0, end: 9 }),
+      key: 'mage-attack',
+      frames: this.anims.generateFrameNumbers('mage-idle', { start: 0, end: 7 }),
       frameRate: 8,
       repeat: 0,
     });
