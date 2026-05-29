@@ -8,6 +8,7 @@ export type MoveDirection = {
 export class Player {
   private readonly sprite: Phaser.GameObjects.Sprite;
   private readonly speed = 130;
+  private facingX = 1;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.sprite = scene.add.sprite(x, y, 'hero-idle');
@@ -32,7 +33,20 @@ export class Player {
     this.sprite.y = Phaser.Math.Clamp(this.sprite.y, bounds.top + halfHeight, bounds.bottom - halfHeight);
 
     if (normalized.x !== 0) {
-      this.sprite.setFlipX(normalized.x < 0);
+      this.facingX = normalized.x < 0 ? -1 : 1;
+      this.sprite.setFlipX(this.facingX < 0);
     }
+  }
+
+  getPosition(): Phaser.Math.Vector2 {
+    return new Phaser.Math.Vector2(this.sprite.x, this.sprite.y);
+  }
+
+  getFacingX(): number {
+    return this.facingX;
+  }
+
+  getHitbox(): Phaser.Geom.Rectangle {
+    return new Phaser.Geom.Rectangle(this.sprite.x - 14, this.sprite.y - 18, 28, 36);
   }
 }
