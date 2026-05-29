@@ -1,0 +1,203 @@
+:root {
+  color: #f7ebc0;
+  background: #080d12;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#app {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(#0e1b21 1px, transparent 1px),
+    linear-gradient(90deg, #0e1b21 1px, transparent 1px),
+    #080d12;
+  background-size: 24px 24px;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+#ui-root {
+  position: absolute;
+  width: min(100vw, 56.25vh);
+  height: min(100vh, 177.78vw);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+button {
+  border: 3px solid #f4d06f;
+  color: #fff2bd;
+  background: #263f46;
+  box-shadow: inset 0 -4px 0 #14252a, 0 4px 0 #05080a;
+  font: 700 16px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+button:active,
+button.is-pressed {
+  transform: translateY(3px);
+  box-shadow: inset 0 -2px 0 #14252a, 0 1px 0 #05080a;
+}
+
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.menu-button {
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top));
+  right: 18px;
+  min-width: 76px;
+  height: 42px;
+  border-radius: 6px;
+}
+
+.dpad {
+  position: absolute;
+  left: 18px;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, 54px);
+  grid-template-rows: repeat(3, 54px);
+  gap: 6px;
+  pointer-events: none;
+}
+
+.dpad button,
+.action-button {
+  width: 54px;
+  height: 54px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+}
+
+.dpad-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.dpad-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.dpad-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.dpad-down {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.action-buttons {
+  position: absolute;
+  right: 22px;
+  bottom: max(44px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(2, 62px);
+  gap: 14px;
+  align-items: end;
+  pointer-events: none;
+}
+
+.action-button {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  font-size: 22px;
+}
+
+.action-b {
+  transform: translateY(18px);
+  background: #3f354f;
+}
+
+.action-a {
+  background: #31533d;
+}
+
+.inventory-menu {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(5, 9, 11, 0.62);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+
+.inventory-menu.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.inventory-panel {
+  width: min(316px, 92vw);
+  border: 4px solid #f4d06f;
+  border-radius: 6px;
+  padding: 18px;
+  background: #172b32;
+  box-shadow: 0 8px 0 #05080a;
+}
+
+.inventory-panel h1 {
+  margin: 0 0 14px;
+  font-size: 22px;
+  text-align: center;
+  color: #fff2bd;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.inventory-slot {
+  aspect-ratio: 1;
+  border: 3px solid #8f6d3d;
+  border-radius: 4px;
+  background: #0f1d22;
+  box-shadow: inset 0 0 0 3px #203942;
+}
