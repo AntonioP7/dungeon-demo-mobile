@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { Player } from '../player/Player';
+import { ProgressStore } from '../save/ProgressStore';
 import { InventoryMenu } from '../ui/InventoryMenu';
 import { TouchControls } from '../ui/TouchControls';
 
@@ -108,6 +109,14 @@ export class GameScene extends Phaser.Scene {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#b9d8c2',
+      })
+      .setOrigin(0.5);
+
+    this.add
+      .text(180, 462, ProgressStore.getHeroName(), {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#fff2bd',
       })
       .setOrigin(0.5);
   }
