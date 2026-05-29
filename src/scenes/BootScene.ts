@@ -6,6 +6,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    this.load.image('dragon-cave-arena', '/dungeon-demo-mobile/assets/backgrounds/dragon-cave-arena-preview.png');
     this.load.spritesheet('hero-idle', '/dungeon-demo-mobile/assets/sprites/hero-epic-idle.png', {
       frameWidth: 96,
       frameHeight: 96,

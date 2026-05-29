@@ -25,7 +25,7 @@ export class GameScene extends Phaser.Scene {
   private fireballs: Array<{ body: Phaser.GameObjects.Sprite; velocity: Phaser.Math.Vector2 }> = [];
   private fireTimerMs = 900;
   private lastTouchB = false;
-  private roomBounds = new Phaser.Geom.Rectangle(38, 116, 284, 284);
+  private roomBounds = new Phaser.Geom.Rectangle(34, 128, 292, 332);
 
   constructor() {
     super('GameScene');
@@ -95,28 +95,10 @@ export class GameScene extends Phaser.Scene {
   private createRoom(): void {
     this.cameras.main.setBackgroundColor('#101820');
 
-    const graphics = this.add.graphics();
-    graphics.fillStyle(0x182c2f);
-    graphics.fillRect(0, 0, 360, 640);
-
-    graphics.fillStyle(0x2d4a3e);
-    graphics.fillRect(this.roomBounds.x, this.roomBounds.y, this.roomBounds.width, this.roomBounds.height);
-
-    graphics.lineStyle(6, 0x8f6d3d);
-    graphics.strokeRect(this.roomBounds.x, this.roomBounds.y, this.roomBounds.width, this.roomBounds.height);
-
-    graphics.lineStyle(2, 0xc7a252);
-    graphics.strokeRect(this.roomBounds.x + 8, this.roomBounds.y + 8, this.roomBounds.width - 16, this.roomBounds.height - 16);
-
-    for (let x = this.roomBounds.x + 28; x < this.roomBounds.right - 8; x += 40) {
-      for (let y = this.roomBounds.y + 34; y < this.roomBounds.bottom - 8; y += 40) {
-        graphics.fillStyle(0x345946, 0.55);
-        graphics.fillRect(x, y, 16, 16);
-      }
-    }
+    this.add.image(180, 320, 'dragon-cave-arena').setDepth(0);
 
     this.add
-      .text(180, 136, 'Bienvenido', {
+      .text(180, 112, 'Bienvenido', {
         fontFamily: 'monospace',
         fontSize: '20px',
         color: '#f8e8a8',
@@ -142,7 +124,7 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.dragon = this.add.sprite(180, 214, 'dragon-idle').setScale(0.72).setDepth(3);
+    this.dragon = this.add.sprite(180, 218, 'dragon-idle').setScale(0.72).setDepth(3);
     this.dragon.play('dragon-idle');
     this.dragonHitbox = new Phaser.Geom.Rectangle(this.dragon.x - 34, this.dragon.y - 28, 68, 60);
     this.dragonSpeech = this.add
