@@ -41,6 +41,17 @@ body,
   background-size: 24px 24px;
 }
 
+:root[data-layout='desktop'] {
+  --controls-height: 0px;
+  --screen-width: min(100vw, calc(100vh * 1.25));
+  --game-height: min(100vh, calc(var(--screen-width) * 0.8));
+  --game-width: min(var(--screen-width), calc(var(--game-height) * 1.25));
+}
+
+:root[data-layout='desktop'] #app {
+  grid-template-rows: var(--game-height);
+}
+
 #game {
   position: relative;
   width: var(--game-width);
@@ -99,6 +110,10 @@ button.is-pressed {
     #0d171d;
   background-size: 18px 18px;
   pointer-events: none;
+}
+
+:root[data-layout='desktop'] .touch-controls {
+  display: none;
 }
 
 .menu-button {

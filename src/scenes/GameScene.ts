@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { CoverObject, DuelistBoss } from '../boss/DuelistBoss';
 import { Player } from '../player/Player';
 import { ProgressStore } from '../save/ProgressStore';
 import { InventoryMenu } from '../ui/InventoryMenu';
@@ -8,6 +9,7 @@ export class GameScene extends Phaser.Scene {
   private player?: Player;
   private controls?: TouchControls;
   private inventory?: InventoryMenu;
+  private duelistBoss?: DuelistBoss;
   private heroHearts: Phaser.GameObjects.Image[] = [];
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd?: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
@@ -30,7 +32,15 @@ export class GameScene extends Phaser.Scene {
   private turnInputLocked = false;
   private heroIsDefending = false;
   private turnOverlay?: Phaser.GameObjects.Container;
+  private turnMageSprite?: Phaser.GameObjects.Image;
+  private turnHeroSprite?: Phaser.GameObjects.Sprite;
   private turnStatusText?: Phaser.GameObjects.Text;
+  private blockers: Phaser.Geom.Rectangle[] = [];
+  private covers: CoverObject[] = [];
+  private tacticalPoints: Phaser.Math.Vector2[] = [];
+  private heroShots: Array<{ body: Phaser.GameObjects.Arc; velocity: Phaser.Math.Vector2; ageMs: number }> = [];
+  private heroShotCooldownMs = 0;
+  private isDesktopLayout = false;
   private roomBounds = new Phaser.Geom.Rectangle(34, 128, 292, 332);
 
   constructor() {
@@ -38,8 +48,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.isDesktopLayout = this.scale.gameSize.width >= 1000;
+    this.roomBounds = new Phaser.Geom.Rectangle(384, 240, 1280, 760);
     this.createRoom();
-    this.player = new Player(this, 180, 360);
+    const playerStart = new Phaser.Math.Vector2(1024, 860);
+    const bossStart = new Phaser.Math.Vector2(1024, 510);
+    this.player = new Player(this, playerStart.x, playerStart.y);
+    this.duelistBoss = new DuelistBoss(this, {
+      x: bossStart.x,
+      y: bossStart.y,
+      roomBounds: this.roomBounds,
+      tacticalPoints: this.tacticalPoints,
+      covers: this.covers,
+      onHeroHit: () => this.damageHero(),
+      onHeroPush: (origin, force) => this.pushHero(origin, force),
+    });
+    this.dragon?.setVisible(false);
+    this.dragonSpeech?.setText('Duelista legendario');
+    this.dragonHealthBar?.setVisible(false);
+
+    if (this.isDesktopLayout) {
+      this.cameras.main.setBounds(0, 0, 2048, 1536);
+      this.cameras.main.startFollow(this.player.getSprite(), true, 0.12, 0.12);
+      this.cameras.main.setDeadzone(360, 240);
+    }
 
     const uiRoot = document.querySelector<HTMLElement>('#ui-root');
     if (!uiRoot) {
@@ -80,12 +112,18 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.didPressB()) {
-      this.useLegendarySword();
+      this.shootHeroProjectile();
     }
 
     const direction = this.getMoveDirection();
-    this.player.update(delta, direction, this.roomBounds);
+    this.player.update(delta, direction, this.roomBounds, this.getActiveBlockers());
     this.heroInvulnerableMs = Math.max(0, this.heroInvulnerableMs - delta);
+    this.heroShotCooldownMs = Math.max(0, this.heroShotCooldownMs - delta);
+    this.updateHeroShots(delta);
+    this.duelistBoss?.update(delta, this.player.getPosition(), this.player.getHitbox());
+    if (this.duelistBoss) {
+      return;
+    }
     this.updateDragon(delta);
     this.updateFireballs(delta);
   }
@@ -104,6 +142,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createRoom(): void {
+    this.createDesktopBossRoom();
+    return;
+
     this.cameras.main.setBackgroundColor('#101820');
 
     this.add.image(180, 320, 'dragon-cave-arena').setDepth(0);
@@ -135,9 +176,10 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.dragon = this.add.sprite(180, 218, 'mage-idle').setScale(0.72).setDepth(3);
-    this.dragon.play('mage-idle');
-    this.dragonHitbox = new Phaser.Geom.Rectangle(this.dragon.x - 34, this.dragon.y - 28, 68, 60);
+    const dragon = this.add.sprite(180, 218, 'mage-idle').setScale(0.72).setDepth(3);
+    dragon.play('mage-idle');
+    this.dragon = dragon;
+    this.dragonHitbox = new Phaser.Geom.Rectangle(dragon.x - 34, dragon.y - 28, 68, 60);
     this.dragonSpeech = this.add
       .text(180, 162, 'SIUUUU', {
         fontFamily: 'monospace',
@@ -161,6 +203,109 @@ export class GameScene extends Phaser.Scene {
     this.drawDragonHealthBar();
   }
 
+  private createDesktopBossRoom(): void {
+    this.cameras.main.setBackgroundColor('#111820');
+    this.blockers = [];
+    this.covers = [];
+    this.tacticalPoints = [
+      new Phaser.Math.Vector2(760, 430),
+      new Phaser.Math.Vector2(1288, 430),
+      new Phaser.Math.Vector2(760, 760),
+      new Phaser.Math.Vector2(1288, 760),
+    ];
+
+    this.drawMuseumFloor();
+    this.addRoomFrame();
+
+    this.addCoverRect('statue', 760, 430, 112, 132, 0x7f8794, false, 'C');
+    this.addCoverRect('statue', 1288, 430, 112, 132, 0x7f8794, false, 'C');
+    this.addCoverRect('statue', 760, 760, 112, 132, 0x7f8794, false, 'C');
+    this.addCoverRect('statue', 1288, 760, 112, 132, 0x7f8794, false, 'C');
+
+    this.add
+      .text(1024, 266, 'Arena debug · Duelista noble v0.1', {
+        fontFamily: 'monospace',
+        fontSize: '28px',
+        color: '#fff2bd',
+        stroke: '#05080a',
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5)
+      .setDepth(5);
+
+    this.add
+      .text(1024, 944, `${ProgressStore.getHeroName()} · B dispara al jefe`, {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#b9d8c2',
+        stroke: '#05080a',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(5);
+
+    this.createHeroHearts();
+  }
+
+  private drawMuseumFloor(): void {
+    const graphics = this.add.graphics().setDepth(0);
+    graphics.fillStyle(0x17202a, 1);
+    graphics.fillRect(0, 0, 2048, 1536);
+    graphics.fillStyle(0x202b34, 1);
+    graphics.fillRect(this.roomBounds.x, this.roomBounds.y, this.roomBounds.width, this.roomBounds.height);
+    graphics.lineStyle(2, 0x32424b, 0.7);
+    for (let x = this.roomBounds.left; x <= this.roomBounds.right; x += 64) {
+      graphics.lineBetween(x, this.roomBounds.top, x, this.roomBounds.bottom);
+    }
+    for (let y = this.roomBounds.top; y <= this.roomBounds.bottom; y += 64) {
+      graphics.lineBetween(this.roomBounds.left, y, this.roomBounds.right, y);
+    }
+    graphics.lineStyle(4, 0x8f6d3d, 1);
+    graphics.strokeRect(this.roomBounds.x + 18, this.roomBounds.y + 18, this.roomBounds.width - 36, this.roomBounds.height - 36);
+  }
+
+  private addRoomFrame(): void {
+    const graphics = this.add.graphics().setDepth(2);
+    graphics.fillStyle(0x101820, 1);
+    graphics.fillRect(this.roomBounds.left - 48, this.roomBounds.top - 48, this.roomBounds.width + 96, 48);
+    graphics.fillRect(this.roomBounds.left - 48, this.roomBounds.bottom, this.roomBounds.width + 96, 48);
+    graphics.fillRect(this.roomBounds.left - 48, this.roomBounds.top - 48, 48, this.roomBounds.height + 96);
+    graphics.fillRect(this.roomBounds.right, this.roomBounds.top - 48, 48, this.roomBounds.height + 96);
+    graphics.lineStyle(4, 0xf4d06f, 1);
+    graphics.strokeRect(this.roomBounds.x, this.roomBounds.y, this.roomBounds.width, this.roomBounds.height);
+
+    this.blockers.push(
+      new Phaser.Geom.Rectangle(this.roomBounds.left - 48, this.roomBounds.top - 60, this.roomBounds.width + 96, 86),
+      new Phaser.Geom.Rectangle(this.roomBounds.left - 48, this.roomBounds.bottom - 24, this.roomBounds.width + 96, 86),
+      new Phaser.Geom.Rectangle(this.roomBounds.left - 54, this.roomBounds.top - 40, 86, this.roomBounds.height + 80),
+      new Phaser.Geom.Rectangle(this.roomBounds.right - 32, this.roomBounds.top - 40, 86, this.roomBounds.height + 80),
+    );
+  }
+
+  private addCoverRect(
+    type: CoverObject['type'],
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: number,
+    breakable: boolean,
+    label: string,
+  ): void {
+    const view = this.add.rectangle(x, y, width, height, color, type === 'vitrine' ? 0.72 : 0.95).setStrokeStyle(4, 0xf4d06f).setDepth(y);
+    this.add
+      .text(x, y, label, {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#05080a',
+      })
+      .setOrigin(0.5)
+      .setDepth(y + 1);
+    const rect = new Phaser.Geom.Rectangle(x - width / 2, y - height / 2, width, height);
+    this.covers.push({ rect, type, breakable, view });
+    this.blockers.push(rect);
+  }
+
   private didPressB(): boolean {
     const touchB = Boolean(this.controls?.state.actionB);
     const pressed = (touchB && !this.lastTouchB) || Boolean(this.bKey && Phaser.Input.Keyboard.JustDown(this.bKey));
@@ -173,6 +318,66 @@ export class GameScene extends Phaser.Scene {
     const pressed = touchA && !this.lastTouchA;
     this.lastTouchA = touchA;
     return pressed;
+  }
+
+  private shootHeroProjectile(): void {
+    if (!this.player || !this.duelistBoss || this.heroShotCooldownMs > 0) {
+      return;
+    }
+
+    const position = this.player.getPosition();
+    const direction = this.duelistBoss.getPosition().subtract(position);
+    if (direction.lengthSq() === 0) {
+      direction.set(0, -1);
+    }
+    direction.normalize();
+    const body = this.add.circle(position.x + direction.x * 28, position.y + direction.y * 28, 8, 0x74ff9b).setStrokeStyle(2, 0x0b2412).setDepth(13);
+    this.heroShots.push({
+      body,
+      velocity: direction.scale(760),
+      ageMs: 0,
+    });
+    this.heroShotCooldownMs = 1000;
+  }
+
+  private updateHeroShots(deltaMs: number): void {
+    const deltaSeconds = deltaMs / 1000;
+    this.heroShots = this.heroShots.filter((shot) => {
+      shot.ageMs += deltaMs;
+      shot.body.x += shot.velocity.x * deltaSeconds;
+      shot.body.y += shot.velocity.y * deltaSeconds;
+
+      const shotCircle = new Phaser.Geom.Circle(shot.body.x, shot.body.y, 8);
+      if (!this.roomBounds.contains(shot.body.x, shot.body.y) || shot.ageMs > 1600) {
+        shot.body.destroy();
+        return false;
+      }
+
+      const hitCover = this.covers.find((cover) => !cover.broken && Phaser.Geom.Intersects.CircleToRectangle(shotCircle, cover.rect));
+      if (hitCover) {
+        shot.body.destroy();
+        return false;
+      }
+
+      if (this.duelistBoss?.tryDeflectHeroProjectile(new Phaser.Math.Vector2(shot.body.x, shot.body.y), shot.velocity.clone())) {
+        shot.body.destroy();
+        return false;
+      }
+
+      if (this.duelistBoss && Phaser.Geom.Intersects.CircleToRectangle(shotCircle, this.duelistBoss.getHitbox())) {
+        this.duelistBoss.takeHit(new Phaser.Math.Vector2(shot.body.x, shot.body.y), 1);
+        shot.body.destroy();
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  private getActiveBlockers(): Phaser.Geom.Rectangle[] {
+    const coverBlockers = this.covers.filter((cover) => !cover.broken).map((cover) => cover.rect);
+    const wallBlockers = this.blockers.filter((blocker) => !this.covers.some((cover) => cover.rect === blocker));
+    return [...wallBlockers, ...coverBlockers];
   }
 
   private useLegendarySword(): void {
@@ -214,6 +419,11 @@ export class GameScene extends Phaser.Scene {
       }
       return true;
     });
+
+    if (this.duelistBoss && Phaser.Geom.Intersects.RectangleToRectangle(swordHitbox, this.duelistBoss.getHitbox())) {
+      this.duelistBoss.takeHit(position);
+      return;
+    }
 
     if (this.dragonHitbox && Phaser.Geom.Intersects.RectangleToRectangle(swordHitbox, this.dragonHitbox)) {
       this.damageDragon();
@@ -293,7 +503,7 @@ export class GameScene extends Phaser.Scene {
   private createHeroHearts(): void {
     this.heroHearts = [];
     for (let index = 0; index < this.heroMaxHp; index += 1) {
-      const heart = this.add.image(58 + index * 24, 92, 'heart-full').setScale(1.3).setDepth(8);
+      const heart = this.add.image(58 + index * 24, 92, 'heart-full').setScale(1.3).setDepth(30).setScrollFactor(0);
       this.heroHearts.push(heart);
     }
   }
@@ -308,6 +518,7 @@ export class GameScene extends Phaser.Scene {
     this.heroHp = Math.max(0, this.heroHp - 1);
     this.heroInvulnerableMs = 900;
     this.updateHeroHearts();
+    this.player?.flashHit();
     this.cameras.main.shake(120, 0.006);
 
     const position = this.player?.getPosition();
@@ -330,6 +541,11 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => ouch.destroy(),
       });
     }
+  }
+
+  private pushHero(origin: Phaser.Math.Vector2, force: number): void {
+    this.player?.knockBackFrom(origin, force);
+    this.cameras.main.shake(90, 0.004);
   }
 
   private damageDragon(): void {
@@ -366,35 +582,115 @@ export class GameScene extends Phaser.Scene {
     this.dragon?.setVisible(false);
     this.dragonSpeech?.setText('FASE POR TURNOS');
 
-    const shade = this.add.rectangle(180, 320, 360, 640, 0x05080a, 0.62);
-    const mage = this.add.image(180, 210, 'mage-battle').setScale(0.68);
-    const panel = this.add.rectangle(180, 482, 304, 112, 0x172b32, 0.94).setStrokeStyle(3, 0xf4d06f);
+    const shade = this.add.rectangle(180, 320, 360, 640, 0x05080a, 0.74);
+    const backGlow = this.add.ellipse(210, 286, 246, 90, 0x6d1f2b, 0.16);
+    const heroGlow = this.add.ellipse(112, 386, 112, 34, 0xf4d06f, 0.18);
+    const mageGlow = this.add.ellipse(230, 354, 138, 42, 0xa35aff, 0.2);
+    const upperPanel = this.createBattlePanel(52, 90, 256, 64, 0x111923);
+    const commandPanel = this.createBattlePanel(26, 434, 130, 96, 0x111923);
+    const statusPanel = this.createBattlePanel(164, 434, 170, 96, 0x172b32);
+    const mage = this.add.image(226, 260, 'mage-battle').setScale(0.54);
+    const hero = this.add.sprite(108, 360, 'hero-idle', 0).setScale(0.74).setFlipX(true);
     const title = this.add
-      .text(180, 430, 'Combate por turnos', {
+      .text(180, 104, 'MAGO OSCURO', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#fff2bd',
+        stroke: '#05080a',
+        strokeThickness: 4,
       })
       .setOrigin(0.5);
     const status = this.add
-      .text(180, 466, 'Tu turno', {
+      .text(249, 458, 'Tu turno', {
         fontFamily: 'monospace',
-        fontSize: '15px',
+        fontSize: '14px',
         color: '#b9d8c2',
+        wordWrap: { width: 140 },
       })
       .setOrigin(0.5);
-    const actions = this.add
-      .text(180, 514, 'B Atacar    A Defender', {
+    const turnLabel = this.add
+      .text(180, 140, 'Fase por turnos', {
         fontFamily: 'monospace',
-        fontSize: '13px',
+        fontSize: '11px',
+        color: '#f4d06f',
+      })
+      .setOrigin(0.5);
+    const commandTitle = this.add
+      .text(90, 450, 'COMANDOS', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#f4d06f',
+      })
+      .setOrigin(0.5);
+    const attack = this.add
+      .text(48, 474, '> B Atacar', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#fff2bd',
+      })
+      .setOrigin(0, 0.5);
+    const defend = this.add
+      .text(48, 496, '  A Defender', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#b9d8c2',
+      })
+      .setOrigin(0, 0.5);
+    const actions = this.add
+      .text(249, 506, 'Elige accion con A/B', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
         color: '#f4d06f',
       })
       .setOrigin(0.5);
 
+    this.turnMageSprite = mage;
+    this.turnHeroSprite = hero;
     this.turnStatusText = status;
-    this.turnOverlay = this.add.container(0, 0, [shade, mage, panel, title, status, actions]).setDepth(20);
+    this.turnOverlay = this.add
+      .container(0, 0, [
+        shade,
+        backGlow,
+        heroGlow,
+        mageGlow,
+        upperPanel,
+        commandPanel,
+        statusPanel,
+        mage,
+        hero,
+        title,
+        turnLabel,
+        status,
+        commandTitle,
+        attack,
+        defend,
+        actions,
+      ])
+      .setDepth(20);
     this.cameras.main.flash(260, 95, 30, 110);
     this.drawDragonHealthBar();
+  }
+
+  private createBattlePanel(x: number, y: number, width: number, height: number, fillColor: number): Phaser.GameObjects.Graphics {
+    const panel = this.add.graphics();
+    panel.fillStyle(0x05080a, 0.62);
+    panel.fillRect(x + 4, y + 4, width, height);
+    panel.fillStyle(fillColor, 0.94);
+    panel.fillRect(x, y, width, height);
+    panel.lineStyle(2, 0xf4d06f, 1);
+    panel.strokeRect(x, y, width, height);
+    panel.lineStyle(1, 0x8f6d3d, 1);
+    panel.strokeRect(x + 5, y + 5, width - 10, height - 10);
+    panel.fillStyle(0xf4d06f, 1);
+    panel.fillRect(x - 2, y - 2, 8, 2);
+    panel.fillRect(x - 2, y - 2, 2, 8);
+    panel.fillRect(x + width - 6, y - 2, 8, 2);
+    panel.fillRect(x + width, y - 2, 2, 8);
+    panel.fillRect(x - 2, y + height, 8, 2);
+    panel.fillRect(x - 2, y + height - 6, 2, 8);
+    panel.fillRect(x + width - 6, y + height, 8, 2);
+    panel.fillRect(x + width, y + height - 6, 2, 8);
+    return panel;
   }
 
   private updateTurnCombat(): void {
@@ -426,11 +722,18 @@ export class GameScene extends Phaser.Scene {
     this.drawDragonHealthBar();
     this.turnStatusText?.setText('Golpe legendario: -2');
     this.tweens.add({
-      targets: this.turnOverlay?.getAt(1),
-      x: 188,
-      duration: 70,
+      targets: this.turnHeroSprite,
+      x: 132,
+      duration: 90,
       yoyo: true,
       onComplete: () => {
+        this.tweens.add({
+          targets: this.turnMageSprite,
+          alpha: 0.55,
+          x: 232,
+          duration: 80,
+          yoyo: true,
+        });
         if (this.dragonHp === 0) {
           this.defeatMage();
           return;
@@ -455,6 +758,12 @@ export class GameScene extends Phaser.Scene {
       this.heroIsDefending = false;
     } else {
       this.turnStatusText?.setText('El mago contraataca');
+      this.tweens.add({
+        targets: this.turnMageSprite,
+        x: 214,
+        duration: 90,
+        yoyo: true,
+      });
       this.damageHero();
     }
 
@@ -490,7 +799,7 @@ export class GameScene extends Phaser.Scene {
     this.dragonHealthBar.setDepth(this.combatPhase === 'turn' || this.combatPhase === 'defeated' ? 22 : 8);
 
     const x = 112;
-    const y = 96;
+    const y = this.combatPhase === 'turn' || this.combatPhase === 'defeated' ? 118 : 96;
     const width = 136;
     const fillWidth = Math.round((this.dragonHp / this.dragonMaxHp) * width);
 

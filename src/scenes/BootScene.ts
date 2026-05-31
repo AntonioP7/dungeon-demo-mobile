@@ -23,6 +23,18 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 128,
       frameHeight: 128,
     });
+    this.load.spritesheet('duelist-idle', '/dungeon-demo-mobile/assets/sprites/duelista_legendario_idle_96x96.png', {
+      frameWidth: 96,
+      frameHeight: 96,
+    });
+    this.load.spritesheet('duelist-move-8dir', '/dungeon-demo-mobile/assets/sprites/duelista_legendario_move_8dir_ordered_96x96.png', {
+      frameWidth: 96,
+      frameHeight: 96,
+    });
+    this.load.spritesheet('duelist-attack-8dir', '/dungeon-demo-mobile/assets/sprites/duelista_legendario_attack_fireworks_8dir_ordered_96x96.png', {
+      frameWidth: 96,
+      frameHeight: 96,
+    });
     this.load.image('mage-battle', '/dungeon-demo-mobile/assets/sprites/archimago_fragmento_oscuro_battle_320x320.png');
     this.load.spritesheet('fireball-projectile', '/dungeon-demo-mobile/assets/sprites/fireball-projectile.png', {
       frameWidth: 64,
@@ -35,6 +47,7 @@ export class BootScene extends Phaser.Scene {
   create(): void {
     this.createHeroAnimations();
     this.createMageAnimations();
+    this.createDuelistAnimations();
     this.createFireballAnimations();
     this.scene.start('GameScene');
   }
@@ -112,6 +125,42 @@ export class BootScene extends Phaser.Scene {
       frames: this.anims.generateFrameNumbers('hero-sword-attack', { start: 0, end: 7 }),
       frameRate: 12,
       repeat: 0,
+    });
+  }
+
+  private createDuelistAnimations(): void {
+    const directions = [
+      ['north', 0],
+      ['south', 1],
+      ['east', 2],
+      ['west', 3],
+      ['northwest', 4],
+      ['southwest', 5],
+      ['southeast', 6],
+      ['northeast', 7],
+    ] as const;
+
+    this.anims.create({
+      key: 'duelist-idle',
+      frames: this.anims.generateFrameNumbers('duelist-idle', { start: 0, end: 7 }),
+      frameRate: 6,
+      repeat: -1,
+    });
+
+    directions.forEach(([direction, row]) => {
+      this.anims.create({
+        key: `duelist-move-${direction}`,
+        frames: this.anims.generateFrameNumbers('duelist-move-8dir', { start: row * 8, end: row * 8 + 7 }),
+        frameRate: 8,
+        repeat: -1,
+      });
+
+      this.anims.create({
+        key: `duelist-attack-${direction}`,
+        frames: this.anims.generateFrameNumbers('duelist-attack-8dir', { start: row * 6, end: row * 6 + 5 }),
+        frameRate: 10,
+        repeat: 0,
+      });
     });
   }
 
